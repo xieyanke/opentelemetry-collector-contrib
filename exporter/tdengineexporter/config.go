@@ -18,7 +18,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	_ "github.com/taosdata/driver-go/v3/taosWS"
@@ -29,52 +28,59 @@ import (
 var (
 	driverName      = "taosWS" // "taosRestful"
 	defaultDatabase = "otel"
+	defaultProtocol = "ws"
 )
 
 var (
-	errConfigNoEndpoint          = errors.New("endpoint must be specified")
-	errConfigInvalidEndpoint     = errors.New("endpoint must be host:port format")
+	errConfigNoAddress           = errors.New("address must be specified")
+	errConfigInvalidAddress      = errors.New("address must be host:port format")
 	errConfigProtocolUnsupported = errors.New("protocl must be \"ws\" or \"http\"")
 )
 
 type tdengineConfig struct {
-	Username   string
-	Password   string
-	Protocol   string
-	Endpoint   string
-	Database   string
-	ConnParams map[string]string
+	Username   string     `mapstructure:"username"`
+	Password   string     `mapstructure:"password"`
+	Protocol   string     `mapstructure:"protocol"`
+	Address    string     `mapstructure:"address"`
+	Database   string     `mapstructure:"database"`
+	ConnParams ConnParams `mapstructure:"conn_params"`
 }
 
-// Encode params into form "?bar=barz&foo=fooz" sorted by key
-func (cfg tdengineConfig) EncodeConnParams() string {
-	if cfg.ConnParams == nil {
-		return ""
-	}
+type ConnParams struct {
+	ReadTimeout        string `mapstructure:"read_timeout"`
+	WriteTimeout       string `mapstructure:"write_timeout"`
+	ReadBufferSize     uint   `mapstructure:"read_buffer_size"`
+	DisableCompression bool   `mapstructure:"disable_compression"`
+}
 
-	var buf strings.Builder
-	keys := make([]string, 0, len(cfg.ConnParams))
-	for k := range cfg.ConnParams {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for index, k := range keys {
-		vs := cfg.ConnParams[k]
-		if index == 0 {
-			buf.WriteByte('?')
-			buf.WriteString(k)
-			buf.WriteByte('=')
-			buf.WriteString(vs)
-		} else {
-			buf.WriteByte('&')
-			buf.WriteString(k)
-			buf.WriteByte('=')
-			buf.WriteString(vs)
+func (params ConnParams) ToString(protocol string) string {
+	if protocol == "ws" {
+		if params.ReadTimeout != "" && params.WriteTimeout != "" {
+			paramsFmt := "?%s=%s&%s=%s"
+			return fmt.Sprintf(paramsFmt, "readTimeout", params.ReadTimeout, "writeTimeout", params.WriteTimeout)
+		} else if params.ReadTimeout != "" {
+			paramsFmt := "?%s=%s"
+			return fmt.Sprintf(paramsFmt, "readTimeout", params.ReadTimeout)
+		} else if params.WriteTimeout != "" {
+			paramsFmt := "?%s=%s"
+			return fmt.Sprintf(paramsFmt, "writeTimeout", params.WriteTimeout)
 		}
 	}
 
-	return buf.String()
+	if protocol == "http" {
+		if params.ReadBufferSize != 0 && params.DisableCompression {
+			paramsFmt := "?%s=%t&%s=%d"
+			return fmt.Sprintf(paramsFmt, "disableCompression", true, "readBufferSize", params.ReadBufferSize)
+		} else if params.ReadBufferSize != 0 {
+			paramsFmt := "?%s=%t&%s=%d"
+			return fmt.Sprintf(paramsFmt, "disableCompression", false, "readBufferSize", params.ReadBufferSize)
+		} else {
+			paramsFmt := "?%s=%t"
+			return fmt.Sprintf(paramsFmt, "disableCompression", params.DisableCompression)
+		}
+	}
+
+	return ""
 }
 
 type Config struct {
@@ -91,12 +97,23 @@ func createDefaultConfig() component.Config {
 		TracesTableName:  "otel_traces",
 		MetricsTableName: "otel_metrics",
 		TTLDays:          0,
+		tdengineConfig: tdengineConfig{
+			Address:  "localhost:6041",
+			Username: "root",
+			Password: "taosdata",
+			Protocol: "ws",
+			Database: defaultDatabase,
+		},
 	}
 }
 
 func (cfg *Config) Validate() (err error) {
-	if cfg.Endpoint == "" {
-		err = multierr.Append(err, errConfigNoEndpoint)
+	if cfg.Address == "" {
+		err = multierr.Append(err, errConfigNoAddress)
+	}
+
+	if len(strings.Split(cfg.Address, ":")) != 2 {
+		err = multierr.Append(err, errConfigInvalidAddress)
 	}
 
 	if cfg.Protocol != "ws" && cfg.Protocol != "http" {
@@ -106,7 +123,7 @@ func (cfg *Config) Validate() (err error) {
 	return err
 }
 
-func (cfg *Config) buildDSN(database string) (string, error) {
+func (cfg *Config) buildDSN(database string) string {
 	// [username[:password]@][protocol[(address)]]/[dbname][?param1=value1&...&paramN=valueN]
 	dsnFmt := "%s:%s@%s(%s)/%s"
 
@@ -114,12 +131,14 @@ func (cfg *Config) buildDSN(database string) (string, error) {
 		dsnFmt = "%s@%s(%s)/%s"
 	}
 
-	dsn := fmt.Sprintf(dsnFmt, cfg.Username, cfg.Password, cfg.Protocol, cfg.Endpoint, database)
-
-	if cfg.ConnParams != nil {
-		dsn += cfg.EncodeConnParams()
+	if database != "" {
+		cfg.Database = database
 	}
-	return dsn, nil
+
+	dsn := fmt.Sprintf(dsnFmt, cfg.Username, cfg.Password, cfg.Protocol, cfg.Address, cfg.Database)
+
+	dsn += cfg.ConnParams.ToString(cfg.Protocol)
+	return dsn
 }
 
 func (cfg *Config) buildDB(database string) (*sql.DB, error) {
@@ -127,9 +146,10 @@ func (cfg *Config) buildDB(database string) (*sql.DB, error) {
 		database = defaultDatabase
 	}
 
-	dsn, err := cfg.buildDSN(database)
-	if err != nil {
-		return nil, err
+	dsn := cfg.buildDSN(database)
+
+	if cfg.Protocol == "http" {
+		driverName = "taosRestful"
 	}
 
 	conn, err := sql.Open(driverName, dsn)

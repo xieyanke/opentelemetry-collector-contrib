@@ -1,0 +1,76 @@
+tdengine:
+  address: localhost:6041
+tdengine/ws_full:
+  address: 127.0.0.1:6041
+  protocol: ws
+  username: foo
+  password: bar
+  database: foo
+  logs_table_name: otel_logs
+  traces_table_name: otel_traces
+  metrics_table_name: otel_metrics
+  conn_params:
+    read_timeout: "30m"
+    write_timeout: "10s"
+  ttl_days: 3
+tdengine/ws_with_param_read_timeout:
+  address: 127.0.0.1:6041
+  protocol: ws
+  username: foo
+  password: bar
+  database: foo
+  logs_table_name: otel_logs
+  traces_table_name: otel_traces
+  metrics_table_name: otel_metrics
+  conn_params:
+    read_timeout: "30m"
+  ttl_days: 3
+tdengine/ws_with_param_write_timeout:
+  address: 127.0.0.1:6041
+  protocol: ws
+  username: foo
+  password: bar
+  database: foo
+  logs_table_name: otel_logs
+  traces_table_name: otel_traces
+  metrics_table_name: otel_metrics
+  conn_params:
+    write_timeout: "10s"
+  ttl_days: 3
+tdengine/rest_full:
+  address: 127.0.0.1:6041
+  protocol: http
+  username: foo
+  password: bar
+  database: otel
+  logs_table_name: otel_logs
+  traces_table_name: otel_traces
+  metrics_table_name: otel_metrics
+  conn_params:
+    read_buffer_size: 52428800
+    disable_compression: false
+  ttl_days: 0
+tdengine/rest_with_param_buffer_size:
+  address: 127.0.0.1:6041
+  protocol: http
+  username: foo
+  password: bar
+  database: otel
+  logs_table_name: otel_logs
+  traces_table_name: otel_traces
+  metrics_table_name: otel_metrics
+  conn_params:
+    read_buffer_size: 524
+  ttl_days: 0
+tdengine/rest_with_param_disable_compression:
+  address: 127.0.0.1:6041
+  protocol: http
+  username: foo
+  password: bar
+  database: otel
+  logs_table_name: otel_logs
+  traces_table_name: otel_traces
+  metrics_table_name: otel_metrics
+  conn_params:
+    disable_compression: true
+  ttl_days: 0

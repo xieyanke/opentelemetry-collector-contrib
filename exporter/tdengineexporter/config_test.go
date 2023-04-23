@@ -46,13 +46,12 @@ func TestLoadConfig(t *testing.T) {
 					Protocol:   "ws",
 					Username:   "foo",
 					Password:   "bar",
-					Database:   "foo",
 					ConnParams: ConnParams{ReadTimeout: "30m", WriteTimeout: "10s"},
 				},
-				LogsTableName:    "otel_logs",
-				MetricsTableName: "otel_metrics",
-				TracesTableName:  "otel_traces",
-				TTLDays:          3,
+				LogsSuperTableName:    "logs.otel",
+				MetricsSuperTableName: "metrics.otel",
+				TracesSuperTableName:  "traces.otel",
+				TTLDays:               3,
 			},
 		},
 		{
@@ -63,13 +62,12 @@ func TestLoadConfig(t *testing.T) {
 					Protocol:   "http",
 					Username:   "foo",
 					Password:   "bar",
-					Database:   "otel",
 					ConnParams: ConnParams{ReadBufferSize: 52428800, DisableCompression: false},
 				},
-				LogsTableName:    "otel_logs",
-				MetricsTableName: "otel_metrics",
-				TracesTableName:  "otel_traces",
-				TTLDays:          0,
+				LogsSuperTableName:    "logs.otel",
+				MetricsSuperTableName: "metrics.otel",
+				TracesSuperTableName:  "traces.otel",
+				TTLDays:               0,
 			},
 		},
 	}
@@ -92,21 +90,20 @@ func TestLoadConfig(t *testing.T) {
 func TestBuildDSN(t *testing.T) {
 	t.Parallel()
 
-	cm, err := confmaptest.LoadConf(filepath.Join("test_data", "config.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, err)
 
 	tests := []struct {
 		id       component.ID
-		dbname   string
 		expected string
 	}{
-		{id: component.NewIDWithName(typeStr, ""), expected: "root:taosdata@ws(localhost:6041)/otel"},
-		{id: component.NewIDWithName(typeStr, "ws_full"), dbname: "foo", expected: "foo:bar@ws(127.0.0.1:6041)/foo?readTimeout=30m&writeTimeout=10s"},
-		{id: component.NewIDWithName(typeStr, "ws_with_param_read_timeout"), dbname: "foo", expected: "foo:bar@ws(127.0.0.1:6041)/foo?readTimeout=30m"},
-		{id: component.NewIDWithName(typeStr, "ws_with_param_write_timeout"), dbname: "foo", expected: "foo:bar@ws(127.0.0.1:6041)/foo?writeTimeout=10s"},
-		{id: component.NewIDWithName(typeStr, "rest_full"), dbname: "otel", expected: "foo:bar@http(127.0.0.1:6041)/otel?disableCompression=false&readBufferSize=52428800"},
-		{id: component.NewIDWithName(typeStr, "rest_with_param_buffer_size"), dbname: "otel", expected: "foo:bar@http(127.0.0.1:6041)/otel?disableCompression=false&readBufferSize=524"},
-		{id: component.NewIDWithName(typeStr, "rest_with_param_disable_compression"), dbname: "otel", expected: "foo:bar@http(127.0.0.1:6041)/otel?disableCompression=true"},
+		{id: component.NewIDWithName(typeStr, ""), expected: "root@ws(localhost:6041)/"},
+		{id: component.NewIDWithName(typeStr, "ws_full"), expected: "foo:bar@ws(127.0.0.1:6041)/?readTimeout=30m&writeTimeout=10s"},
+		{id: component.NewIDWithName(typeStr, "ws_with_param_read_timeout"), expected: "root@ws(127.0.0.1:6041)/?readTimeout=30m"},
+		{id: component.NewIDWithName(typeStr, "ws_with_param_write_timeout"), expected: "root@ws(127.0.0.1:6041)/?writeTimeout=10s"},
+		{id: component.NewIDWithName(typeStr, "rest_full"), expected: "foo:bar@http(127.0.0.1:6041)/?disableCompression=false&readBufferSize=52428800"},
+		{id: component.NewIDWithName(typeStr, "rest_with_param_buffer_size"), expected: "root@http(127.0.0.1:6041)/?disableCompression=false&readBufferSize=524"},
+		{id: component.NewIDWithName(typeStr, "rest_with_param_disable_compression"), expected: "root@http(127.0.0.1:6041)/?disableCompression=true"},
 	}
 
 	for _, tt := range tests {
@@ -118,8 +115,7 @@ func TestBuildDSN(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, component.UnmarshalConfig(sub, cfg))
 			assert.NoError(t, component.ValidateConfig(cfg))
-
-			require.Equal(t, tt.expected, cfg.(*Config).buildDSN(tt.dbname))
+			require.Equal(t, tt.expected, cfg.(*Config).buildDSN(""))
 		})
 	}
 }

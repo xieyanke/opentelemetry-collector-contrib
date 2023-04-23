@@ -28,7 +28,6 @@ import (
 // nolint
 var (
 	driverName      = "taosWS"
-	defaultDatabase = "otel"
 	defaultProtocol = "ws"
 )
 
@@ -43,7 +42,6 @@ type tdengineConfig struct {
 	Password   string     `mapstructure:"password"`
 	Protocol   string     `mapstructure:"protocol"`
 	Address    string     `mapstructure:"address"`
-	Database   string     `mapstructure:"database"`
 	ConnParams ConnParams `mapstructure:"conn_params"`
 }
 
@@ -91,25 +89,23 @@ func (params ConnParams) ToString(protocol string) string {
 }
 
 type Config struct {
-	tdengineConfig   `mapstructure:",squash"`
-	LogsTableName    string `mapstructure:"logs_table_name"`
-	MetricsTableName string `mapstructure:"metrics_table_name"`
-	TracesTableName  string `mapstructure:"traces_table_name"`
-	TTLDays          uint   `mapstructure:"ttl_days"`
+	tdengineConfig        `mapstructure:",squash"`
+	LogsSuperTableName    string `mapstructure:"logs_stable_name"`
+	MetricsSuperTableName string `mapstructure:"metrics_stable_name"`
+	TracesSuperTableName  string `mapstructure:"traces_stable_name"`
+	TTLDays               uint   `mapstructure:"ttl_days"`
 }
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		LogsTableName:    "otel_logs",
-		TracesTableName:  "otel_traces",
-		MetricsTableName: "otel_metrics",
-		TTLDays:          0,
+		LogsSuperTableName:    "logs.otel",
+		TracesSuperTableName:  "traces.otel",
+		MetricsSuperTableName: "metrics.otel",
+		TTLDays:               0,
 		tdengineConfig: tdengineConfig{
 			Address:  "localhost:6041",
 			Username: "root",
-			Password: "taosdata",
 			Protocol: "ws",
-			Database: defaultDatabase,
 		},
 	}
 }
@@ -134,15 +130,13 @@ func (cfg *Config) buildDSN(database string) string {
 	// [username[:password]@][protocol[(address)]]/[dbname][?param1=value1&...&paramN=valueN]
 	dsnFmt := "%s:%s@%s(%s)/%s"
 
+	var dsn string
 	if cfg.Password == "" {
 		dsnFmt = "%s@%s(%s)/%s"
+		dsn = fmt.Sprintf(dsnFmt, cfg.Username, cfg.Protocol, cfg.Address, database)
+	} else {
+		dsn = fmt.Sprintf(dsnFmt, cfg.Username, cfg.Password, cfg.Protocol, cfg.Address, database)
 	}
-
-	if database != "" {
-		cfg.Database = database
-	}
-
-	dsn := fmt.Sprintf(dsnFmt, cfg.Username, cfg.Password, cfg.Protocol, cfg.Address, cfg.Database)
 
 	dsn += cfg.ConnParams.ToString(cfg.Protocol)
 	return dsn
@@ -150,9 +144,6 @@ func (cfg *Config) buildDSN(database string) string {
 
 // nolint
 func (cfg *Config) buildDB(database string) (*sql.DB, error) {
-	if database == "" {
-		database = defaultDatabase
-	}
 
 	dsn := cfg.buildDSN(database)
 

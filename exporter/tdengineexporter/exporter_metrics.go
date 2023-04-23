@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tdengineexporter
+package tdengineexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/tdengineexporter"
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// nolint
 type metricsExporter struct {
 	client *sql.DB
 	logger *zap.Logger
@@ -38,6 +39,7 @@ func (e *metricsExporter) Start(ctx context.Context, host component.Host) error 
 	panic("unimplemented")
 }
 
+// nolint
 func newMetricsExporter(logger *zap.Logger, cfg *Config) (*metricsExporter, error) {
 	return nil, nil
 }

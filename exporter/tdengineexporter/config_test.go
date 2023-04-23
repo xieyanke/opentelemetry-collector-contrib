@@ -27,7 +27,7 @@ import (
 func TestLoadConfig(t *testing.T) {
 	t.Parallel()
 
-	cm, err := confmaptest.LoadConf(filepath.Join("test_data", "config.yaml"))
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -64,7 +64,7 @@ func TestLoadConfig(t *testing.T) {
 					Username:   "foo",
 					Password:   "bar",
 					Database:   "otel",
-					ConnParams: ConnParams{ReadBufferSize: 52428800, DisableCompression: true},
+					ConnParams: ConnParams{ReadBufferSize: 52428800, DisableCompression: false},
 				},
 				LogsTableName:    "otel_logs",
 				MetricsTableName: "otel_metrics",

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tdengineexporter
+package tdengineexporter // import "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/tdengineexporter"
 
 import (
 	"database/sql"
@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/taosdata/driver-go/v3/taosWS"
+	_ "github.com/taosdata/driver-go/v3/taosWS" //nolint:golint,unused
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/multierr"
 )
 
+// nolint
 var (
-	driverName      = "taosWS" // "taosRestful"
+	driverName      = "taosWS"
 	defaultDatabase = "otel"
 	defaultProtocol = "ws"
 )
@@ -34,7 +35,7 @@ var (
 var (
 	errConfigNoAddress           = errors.New("address must be specified")
 	errConfigInvalidAddress      = errors.New("address must be host:port format")
-	errConfigProtocolUnsupported = errors.New("protocl must be \"ws\" or \"http\"")
+	errConfigProtocolUnsupported = errors.New("protocol must be \"ws\" or \"http\"")
 )
 
 type tdengineConfig struct {
@@ -58,10 +59,14 @@ func (params ConnParams) ToString(protocol string) string {
 		if params.ReadTimeout != "" && params.WriteTimeout != "" {
 			paramsFmt := "?%s=%s&%s=%s"
 			return fmt.Sprintf(paramsFmt, "readTimeout", params.ReadTimeout, "writeTimeout", params.WriteTimeout)
-		} else if params.ReadTimeout != "" {
+		}
+
+		if params.ReadTimeout != "" {
 			paramsFmt := "?%s=%s"
 			return fmt.Sprintf(paramsFmt, "readTimeout", params.ReadTimeout)
-		} else if params.WriteTimeout != "" {
+		}
+
+		if params.WriteTimeout != "" {
 			paramsFmt := "?%s=%s"
 			return fmt.Sprintf(paramsFmt, "writeTimeout", params.WriteTimeout)
 		}
@@ -71,13 +76,15 @@ func (params ConnParams) ToString(protocol string) string {
 		if params.ReadBufferSize != 0 && params.DisableCompression {
 			paramsFmt := "?%s=%t&%s=%d"
 			return fmt.Sprintf(paramsFmt, "disableCompression", true, "readBufferSize", params.ReadBufferSize)
-		} else if params.ReadBufferSize != 0 {
+		}
+
+		if params.ReadBufferSize != 0 {
 			paramsFmt := "?%s=%t&%s=%d"
 			return fmt.Sprintf(paramsFmt, "disableCompression", false, "readBufferSize", params.ReadBufferSize)
-		} else {
-			paramsFmt := "?%s=%t"
-			return fmt.Sprintf(paramsFmt, "disableCompression", params.DisableCompression)
 		}
+
+		paramsFmt := "?%s=%t"
+		return fmt.Sprintf(paramsFmt, "disableCompression", params.DisableCompression)
 	}
 
 	return ""
@@ -141,6 +148,7 @@ func (cfg *Config) buildDSN(database string) string {
 	return dsn
 }
 
+// nolint
 func (cfg *Config) buildDB(database string) (*sql.DB, error) {
 	if database == "" {
 		database = defaultDatabase
